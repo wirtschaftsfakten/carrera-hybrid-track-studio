@@ -1,4 +1,5 @@
 import {
+  canConnect,
   FULL_TURN_UNITS,
   PIECE_ORDER,
   PIECES,
@@ -74,7 +75,9 @@ export type IssueCode =
   | 'overlap'
   | 'startFinishMissing'
   | 'startFinishMultiple'
-  | 'inventoryExceeded';
+  | 'inventoryExceeded'
+  | 'badConnection'
+  | 'unverifiedPiece';
 
 export interface Issue {
   code: IssueCode;
@@ -154,6 +157,17 @@ export function validate(sequence: PieceId[], inventory?: Inventory): Validation
   if (counts.startFinish > 1) {
     issues.push({ code: 'startFinishMultiple', message: 'Nur eine Start-/Zielgerade pro Strecke möglich.' });
   }
+  for (const id of PIECE_ORDER) {
+    if (counts[id] && !PIECES[id].verified) {
+      issues.push({ code: 'unverifiedPiece', message: `${PIECES[id].name}: Geometrie nicht verifiziert.` });
+    }
+  }
+  sequence.forEach((id, i) => {
+    const next = i + 1 < sequence.length ? sequence[i + 1] : closed ? sequence[0] : null;
+    if (next && !canConnect(id, next)) {
+      issues.push({ code: 'badConnection', message: `Teil ${i + 1} passt nicht an das folgende Teil.`, pieces: [i] });
+    }
+  });
   if (inventory) {
     for (const id of PIECE_ORDER) {
       if (counts[id] > inventory[id]) {

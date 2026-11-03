@@ -1,7 +1,7 @@
 {
-  "name": "Carrera HYBRID Track Studio",
+  "name": "Hybrid Track Studio",
   "short_name": "Track Studio",
-  "description": "Generiert geometrisch geprüfte, baubare Carrera-HYBRID-Rundkurse aus deinem Teilebestand.",
+  "description": "Streckenplaner für Carrera HYBRID: geometrisch geprüfte, baubare Rundkurse aus deinem Teilebestand. Funktioniert offline.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",
@@ -10,9 +10,33 @@
   "background_color": "#07080b",
   "theme_color": "#07080b",
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
-    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "id": "./",
+  "categories": [
+    "utilities",
+    "entertainment"
   ]
 }

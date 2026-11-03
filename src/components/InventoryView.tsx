@@ -1,4 +1,4 @@
-import { DEFAULT_INVENTORY, PIECE_ORDER, PIECES, UNVERIFIED_PIECES, type Inventory } from '../geometry/catalog';
+import { DEFAULT_INVENTORY, PIECE_ORDER, PIECES, SOURCES, totalPieces, UNVERIFIED_PIECES, type Inventory } from '../geometry/catalog';
 import { Button, Card, PieceGlyph, SectionTitle, Stepper } from './ui';
 
 interface Props {
@@ -6,28 +6,30 @@ interface Props {
   onChange: (inv: Inventory) => void;
 }
 
-const SOURCES = [
-  { label: 'Carrera: Speedway to Hell (FAQ: Gerade 25 × 43,3 cm, Kurvenradius 37,5 cm, 609 cm Strecke)', url: 'https://carrera-toys.com/en-eu/products/50050001-speedway-to-hell' },
-  { label: 'carrera-fun.com: CARRERA HYBRID – The track (Teileliste mit Radien)', url: 'https://www.carrera-fun.com/?p=7909&lang=en' },
-  { label: 'Carrera HYBRID Bedienungsanleitung (Fahrtrichtung, Pfeile)', url: 'https://backend.carrera-revell-toys.com/var/assets/_default_upload_bucket/Carrera-Hybrid-Manual.pdf' },
-  { label: 'Carrera: Curves Radius 2 30° (50052004)', url: 'https://carrera-toys.com/en-eu/products/50052004-curves-radius-2-30-2x-l-2x-r' },
-  { label: 'Sturmkind Community: Hexagon-Raster der Kurven', url: 'https://community.sturmkind.com/topic/6935-andere-kurvenradien-im-hexagon/' },
-];
 
 export function InventoryView({ inventory, onChange }: Props) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <Card className="p-4">
         <SectionTitle hint={<button className="text-carrera-amber" onClick={() => onChange({ ...DEFAULT_INVENTORY })}>Grundset</button>}>
-          Mein Streckenbestand
+          Mein Streckenbestand · {totalPieces(inventory)}
         </SectionTitle>
+        <p className="mb-2 text-xs text-zinc-500">
+          Trage ein, wie viele Teile du besitzt. Das ist nur der verfügbare Vorrat: Der Generator nutzt so viele davon, wie für eine gute Strecke
+          sinnvoll ist.
+        </p>
         <ul className="divide-y divide-white/5">
           {PIECE_ORDER.map((id) => (
             <li key={id} className="flex items-center gap-3 py-3">
               <PieceGlyph id={id} size={34} />
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold">
+                <div className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
                   {PIECES[id].name} <span className="text-xs font-normal text-zinc-500">({PIECES[id].letter})</span>
+                  {PIECES[id].verified && (
+                    <span className="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300" title={`Quellen: ${PIECES[id].sources.map((n) => n + 1).join(', ')}`}>
+                      geprüft
+                    </span>
+                  )}
                 </div>
                 <div className="text-xs leading-snug text-zinc-500">{PIECES[id].note}</div>
               </div>
@@ -81,7 +83,7 @@ export function InventoryView({ inventory, onChange }: Props) {
 
         <Card className="p-4 text-xs text-zinc-400">
           <SectionTitle>Quellen</SectionTitle>
-          <ul className="space-y-1.5">
+          <ol className="list-decimal space-y-1.5 pl-4">
             {SOURCES.map((s) => (
               <li key={s.url}>
                 <a className="text-zinc-300 underline decoration-white/20 underline-offset-2 hover:text-white" href={s.url} target="_blank" rel="noreferrer">
@@ -89,7 +91,7 @@ export function InventoryView({ inventory, onChange }: Props) {
                 </a>
               </li>
             ))}
-          </ul>
+          </ol>
           <Button variant="subtle" className="mt-2 -ml-3" onClick={() => onChange({ ...DEFAULT_INVENTORY })}>
             Bestand auf Grundset zurücksetzen
           </Button>

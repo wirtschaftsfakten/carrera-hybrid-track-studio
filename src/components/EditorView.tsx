@@ -1,19 +1,30 @@
-import { useMemo, useState } from 'react';
-import { PIECE_ORDER, PIECES, type Inventory, type PieceId } from '../geometry/catalog';
+import { useMemo, useRef, useState } from 'react';
+import { useEntitlement } from '../billing/EntitlementProvider';
+import { limitsFor } from '../billing/entitlements';
+import { GENERATOR_PIECES, PIECES, type Inventory, type PieceId } from '../geometry/catalog';
 import { countPieces, validate } from '../geometry/layout';
+import { exportPdf, exportPng, safeFilename } from '../lib/export';
 import { m, num, size } from '../lib/format';
 import type { EditorState } from '../lib/storage';
+import { PartsUsage, planLines } from './PartsUsage';
 import { TrackSvg } from './TrackSvg';
-import { Button, Card, PieceGlyph, SectionTitle, Stat } from './ui';
+import { Button, Card, LockIcon, PieceGlyph, SectionTitle, Stat } from './ui';
 
 interface Props {
   state: EditorState;
   inventory: Inventory;
   onChange: (s: EditorState) => void;
   onSave: (s: EditorState) => void;
+  onGenerate: () => void;
+  onUpgrade: (reason: string) => void;
 }
 
-export function EditorView({ state, inventory, onChange, onSave }: Props) {
+const PIECE_ORDER = GENERATOR_PIECES;
+
+export function EditorView({ state, inventory, onChange, onSave, onGenerate, onUpgrade }: Props) {
+  const { tier } = useEntitlement();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [exporting, setExporting] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const { sequence } = state;
   const v = useMemo(() => validate(sequence, inventory), [sequence, inventory]);
@@ -52,6 +63,21 @@ export function EditorView({ state, inventory, onChange, onSave }: Props) {
     setSeq([...sequence.slice(sel), ...sequence.slice(0, sel)], 0);
   };
 
+  const doExport = async (kind: 'png' | 'pdf') => {
+    if (!limitsFor(tier)[kind === 'png' ? 'exportPng' : 'exportPdf']) return onUpgrade('Der Export als PNG und PDF ist eine Pro-Funktion.');
+    if (!svgRef.current || !sequence.length) return;
+    setExporting(true);
+    try {
+      const name = state.name.trim() || 'Strecke';
+      if (kind === 'png') await exportPng(svgRef.current, safeFilename(name));
+      else await exportPdf(svgRef.current, safeFilename(name), name, planLines(sequence, v.length, v.bounds.width, v.bounds.height, inventory));
+    } catch (e) {
+      alert((e as Error).message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const status = !sequence.length
     ? { tone: 'neutral', text: 'Leere Strecke – füge das erste Teil hinzu.' }
     : v.valid
@@ -75,6 +101,8 @@ export function EditorView({ state, inventory, onChange, onSave }: Props) {
           </div>
           <div className="grid min-h-[260px] place-items-center bg-ink-900 p-2">
             <TrackSvg
+              ref={svgRef}
+              interactive
               autoHeight
               className="max-h-[65vh]"
               sequence={sequence}
@@ -87,7 +115,7 @@ export function EditorView({ state, inventory, onChange, onSave }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-3 border-t border-white/5 px-4 py-3">
             <Stat label="Länge" value={m(v.length)} />
-            <Stat label="Fläche" value={sequence.length ? size(v.bounds.width, v.bounds.height) : '–'} />
+            <Stat label="Platzbedarf" value={sequence.length ? size(v.bounds.width, v.bounds.height) : '–'} />
             <Stat label="Teile" value={sequence.length} />
           </div>
         </Card>
@@ -175,9 +203,27 @@ export function EditorView({ state, inventory, onChange, onSave }: Props) {
           </div>
         </Card>
 
+        {sequence.length > 0 && (
+          <Card className="pt-3">
+            <SectionTitle>
+              <span className="px-4">Teileübersicht</span>
+            </SectionTitle>
+            <PartsUsage used={used} inventory={inventory} />
+          </Card>
+        )}
+
         <Button variant="primary" className="h-14 w-full text-base" disabled={!sequence.length} onClick={() => onSave(state)}>
-          {state.savedId ? 'Änderungen speichern' : 'Strecke speichern'}
+          {state.savedId ? 'Änderungen speichern' : '★ Strecke speichern'}
         </Button>
+        <div className="grid grid-cols-3 gap-2">
+          <Button onClick={() => doExport('png')} disabled={exporting || !sequence.length}>
+            PNG {tier === 'free' && <LockIcon />}
+          </Button>
+          <Button onClick={() => doExport('pdf')} disabled={exporting || !sequence.length}>
+            PDF {tier === 'free' && <LockIcon />}
+          </Button>
+          <Button onClick={onGenerate}>Neu ⚡</Button>
+        </div>
         {!v.valid && sequence.length > 0 && (
           <p className="text-center text-xs text-zinc-500">Ungültige Strecken werden als Entwurf gespeichert und so markiert.</p>
         )}

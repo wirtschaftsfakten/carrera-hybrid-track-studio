@@ -5,10 +5,13 @@ import { bestOrientation } from '../src/geometry/orientation';
 import { shapeKey } from '../src/generator/canonical';
 import { search, type SearchOptions } from '../src/generator/search';
 
+// min = max = 15 pieces: the complete basic set in every track
 const base: SearchOptions = {
   inventory: DEFAULT_INVENTORY,
-  useAll: true,
-  minPieces: 3,
+  mode: 'custom',
+  minPieces: 15,
+  maxPieces: 15,
+  style: 'varied',
   maxResults: 50,
   timeLimitMs: 20000,
   seed: 1,
@@ -61,9 +64,9 @@ describe('Generator mit Grundbestand (4 G, 1 S/Z, 8 R, 2 L)', () => {
 });
 
 describe('Teilebegrenzung', () => {
-  it('überschreitet nie den Bestand (ohne "alle Teile")', () => {
+  it('überschreitet nie den Bestand (Teileanzahl 8 bis alle)', () => {
     const inventory = inv({ startFinish: 1, straight: 6, curveR1Right: 9, curveR1Left: 3 });
-    const res = search({ ...base, inventory, useAll: false, minPieces: 8, timeLimitMs: 8000 });
+    const res = search({ ...base, inventory, minPieces: 8, maxPieces: 99, timeLimitMs: 8000 });
     expect(res.layouts.length).toBeGreaterThan(0);
     for (const l of res.layouts) {
       const c = countPieces(l.sequence);
@@ -73,29 +76,29 @@ describe('Teilebegrenzung', () => {
     }
   });
 
-  it('meldet ehrlich: kein Rundkurs möglich (Kurvensumme ≠ 360°)', () => {
-    const res = search({ ...base, inventory: inv({ startFinish: 1, straight: 4, curveR1Right: 5 }) });
+  it('meldet ehrlich: kein Rundkurs möglich (weniger als 360° Kurven)', () => {
+    const res = search({ ...base, mode: 'auto', inventory: inv({ startFinish: 1, straight: 4, curveR1Right: 5 }) });
     expect(res.layouts).toEqual([]);
     expect(res.exhaustive).toBe(true);
     expect(res.impossibleReason).toMatch(/300°/);
   });
 
   it('meldet ehrlich: ohne Start/Ziel keine Strecke', () => {
-    const res = search({ ...base, inventory: inv({ straight: 4, curveR1Right: 6 }) });
+    const res = search({ ...base, mode: 'auto', inventory: inv({ straight: 4, curveR1Right: 6 }) });
     expect(res.layouts).toEqual([]);
     expect(res.impossibleReason).toBeDefined();
   });
 
   it('erkennt geometrisch unmögliche Bestände nach vollständiger Suche', () => {
     // 360° of turn, but an odd straight count with only one straight can never close
-    const res = search({ ...base, inventory: inv({ startFinish: 1, curveR1Right: 6 }) });
+    const res = search({ ...base, mode: 'auto', inventory: inv({ startFinish: 1, curveR1Right: 6 }) });
     expect(res.impossibleReason).toBeUndefined();
     expect(res.exhaustive).toBe(true);
     expect(res.layouts).toEqual([]);
   });
 
   it('findet Rundkurse mit R2-30°-Kurven', () => {
-    const res = search({ ...base, inventory: inv({ startFinish: 1, straight: 1, curveR1Right: 4, curveR2Right: 4 }), timeLimitMs: 8000 });
+    const res = search({ ...base, mode: 'auto', inventory: inv({ startFinish: 1, straight: 1, curveR1Right: 4, curveR2Right: 4 }), timeLimitMs: 8000 });
     expect(res.layouts.length).toBeGreaterThan(0);
     for (const l of res.layouts) expect(validate(l.sequence).valid).toBe(true);
   });

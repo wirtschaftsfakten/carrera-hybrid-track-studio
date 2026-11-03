@@ -1,4 +1,4 @@
-import type { PieceId } from '../geometry/catalog';
+import { PIECE_ORDER, PIECES, type PieceId } from '../geometry/catalog';
 
 /**
  * Shape signature of a closed loop, independent of
@@ -8,17 +8,16 @@ import type { PieceId } from '../geometry/catalog';
  *  - and the direction it is driven (reverse + swap).
  * Two layouts with the same key look identical on the floor apart from
  * being rotated or mirrored, so the generator only keeps one of them.
+ * Codes and mirror pairs come from the piece catalogue (shapeCode, mirror).
  */
-const CODE: Record<PieceId, string> = {
-  startFinish: 'S',
-  straight: 'S',
-  curveR1Right: 'R',
-  curveR1Left: 'L',
-  curveR2Right: 'r',
-  curveR2Left: 'l',
-};
+const CODE = Object.fromEntries(PIECE_ORDER.map((id) => [id, PIECES[id].shapeCode])) as Record<PieceId, string>;
 
-const SWAP: Record<string, string> = { S: 'S', R: 'L', L: 'R', r: 'l', l: 'r' };
+const SWAP: Record<string, string> = Object.fromEntries(
+  PIECE_ORDER.map((id) => {
+    const m = PIECES[id].mirror;
+    return [PIECES[id].shapeCode, m ? PIECES[m].shapeCode : PIECES[id].shapeCode];
+  }),
+);
 
 function minRotation(s: string): string {
   let best = s;

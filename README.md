@@ -1,26 +1,68 @@
-# Carrera HYBRID Track Studio
+# Hybrid Track Studio (für Carrera HYBRID)
 
-Mobile-first PWA, die aus einem editierbaren Teilebestand automatisch **geometrisch geprüfte, baubare Carrera-HYBRID-Rundkurse** erzeugt. Kein Backend, keine Konten, keine kostenpflichtigen APIs; Bestand, Einstellungen und gespeicherte Strecken liegen im `localStorage` des Geräts.
+Streckenplaner, der aus einem editierbaren Teilebestand **geometrisch geprüfte, baubare Carrera-HYBRID-Rundkurse** erzeugt. Eine Codebasis für Website, installierbare PWA und native iOS-App (Capacitor). Die Streckenberechnung läuft komplett lokal und offline; nur Konto und Abo brauchen Internet.
+
+> „Carrera“ und „HYBRID“ sind Marken der Carrera Toys GmbH. Die App nutzt keine Carrera-Logos oder Produktbilder; Name und Branding stehen zentral in `src/config/brand.ts`.
 
 ## Starten
 
 ```bash
 npm install
-npm run dev        # Entwicklung
-npm test           # Vitest: Geometrie, Rundkursschluss, Teilbegrenzung, Generator
-npm run build      # Typecheck + Produktions-Build nach dist/
-npm run preview    # Build lokal ansehen (Service Worker aktiv)
-npm run icons      # App-Icons neu rendern (ohne Zusatzpakete)
+npm run dev          # Entwicklung (http://localhost:5173)
+npm test             # Vitest: Geometrie, Generator-Modi, 60/100+ Teile, Speicher, Free/Pro, Server, PDF
+npm run build        # Typecheck + Produktions-Build nach dist/
+npm run preview      # Build lokal ansehen (Service Worker aktiv)
+npm run icons        # Web-, iOS-App-Icon und Splashscreen neu rendern
+npm run server:keys  # Signaturschlüssel für den Abo-Status erzeugen
+npm run server       # Abo-/Zahlungs-API (server/), liest server/.env
+npm run cap:sync     # Build + Kopie ins iOS-Projekt
+npm run cap:open     # iOS-Projekt in Xcode öffnen (nur macOS)
 ```
 
-**Aufs Handy:** `dist/` auf einen beliebigen HTTPS-Host legen (z. B. GitHub Pages, Netlify; der Build nutzt relative Pfade und läuft auch in Unterordnern). Dann im Browser öffnen → iPhone: Teilen → „Zum Home-Bildschirm“; Android/Chrome: Menü → „App installieren“. Nach dem ersten Aufruf funktioniert alles offline (auch der Generator, er läuft in einem Web Worker).
+**Aufs Handy (PWA):** `dist/` auf einen HTTPS-Host legen (GitHub Pages, Netlify …). iPhone: Teilen → „Zum Home-Bildschirm“; Android/Chrome: „App installieren“. Nach dem ersten Aufruf funktioniert der Generator offline (Web Worker + Service Worker).
 
 ## Funktionen
 
-- **Generator** – Backtracking-Suche über den Bestand. Option „Alle Teile verbauen“, Mindestanzahl Teile, Anzahl Varianten, optionale Raumgröße (B × T in cm). Jede Variante wird vor der Anzeige ein zweites Mal unabhängig validiert. Gibt es keinen Rundkurs, steht das da – mit Begründung und dem Hinweis, ob der Suchraum vollständig durchsucht wurde.
-- **Editor** – SVG-Plan mit echter Geometrie. Teile anhängen/einfügen (nach dem ausgewählten Teil), ersetzen, löschen, beliebiges Teil zu „Teil 1“ machen, Ansicht in 30°-Schritten drehen. Live-Validierung: Lücke in cm, Drehwinkel, Überschneidungen (rot markiert), Start/Ziel-Regel, Bestand.
-- **Strecken** – gespeicherte Layouts mit Status „gültig“ / „Bestand fehlt“ / „Entwurf“.
-- **Bestand** – Teilezahlen, Maße je Teil, Rechenregeln, nicht verifizierte Teile, Quellen.
+- **Generator** mit drei Modi. Der Bestand ist immer nur der verfügbare Vorrat, nie eine Pflichtmenge:
+  - *Automatisch* (Standard): Der Generator wählt die Größe selbst (8 bis 32 Teile bzw. weniger, wenn der Bestand kleiner ist). Nicht benötigte Teile bleiben übrig.
+  - *Benutzerdefiniert*: Mindest- und Höchstzahl der Teile per Doppel-Schieberegler, z. B. 15–30 von 60.
+  - *Maximale Ausnutzung* (Pro): möglichst viele Teile, aber nur gültige Rundkurse (bei 60 Teilen typisch 50+).
+  - Streckenstile: abwechslungsreich, schnell, kurvenreich, kompakt. Filter für Länge (cm) und Bodenfläche (B × T cm).
+  - Jede Variante wird vor der Anzeige unabhängig validiert. Ohne Ergebnis zeigt die App den Grund und konkrete Vorschläge (Fläche vergrößern, Mindestzahl senken, Kurven ergänzen …).
+- **Editor**: maßstabsgetreuer SVG-Plan mit Fahrbahnoptik (blauer/roter Rand, Start-/Ziellinie, Fahrtrichtungspfeile), Zoom (Pinch, Mausrad, Buttons, Doppeltipp) und Verschieben, Drehen in 30°-Schritten. Teile anhängen, einfügen, ersetzen, löschen. Live-Prüfung, Teileübersicht (verbaut / übrig), Länge, Platzbedarf, PNG-/PDF-Export.
+- **Vergleich**: alle Varianten eines Durchlaufs als Karten mit Teilezahl, Länge und Maßen.
+- **Strecken**: speichern, laden, Favoriten (★), Status „gültig“ / „Bestand fehlt“ / „Entwurf“.
+- **Inventar**: Teilezahlen, Maße, geprüfte und nicht verifizierte Teile, Quellen.
+- **Pro**: Preisseite, Upgrade-Dialoge, Kauf, Wiederherstellen, Abo verwalten.
+
+## Free und Pro
+
+Alle Preise, Limits und Funktionen stehen zentral in `src/billing/plans.ts` (die Regeln in `src/billing/entitlements.ts`).
+
+| | Free | Pro (0,99 €/Monat · 5,99 €/Jahr) |
+|---|---|---|
+| Generierungen | 3 pro Tag | unbegrenzt |
+| Gespeicherte Strecken | 5 | unbegrenzt |
+| Modi | Automatisch, Benutzerdefiniert | + Maximale Ausnutzung |
+| Stile, Längenfilter | – | ✓ |
+| Varianten pro Durchlauf | 3 | bis 24 |
+| PNG-/PDF-Export | – | ✓ |
+
+### Sicherheitsarchitektur
+
+- Der Pro-Status entsteht **nur auf dem Server** (`server/`): aus signaturgeprüften Stripe-Webhooks oder aus Apple-Transaktionen, deren Zertifikatskette bis „Apple Root CA – G3“ geprüft wurde.
+- Der Server gibt einen **signierten Berechtigungs-Token** aus (ECDSA P-256). Die App enthält nur den öffentlichen Schlüssel und prüft Signatur, Konto-ID und Ablauf. Einen Wert im `localStorage` auf „pro“ zu ändern, bringt nichts.
+- Tokens laufen nach spätestens 14 Tagen ab (Offline-Nutzung), danach holt die App einen neuen.
+- Konten sind anonym: Der Server vergibt eine UUID und ein geheimes Token (gespeichert wird nur dessen Hash). Die UUID dient bei Apple als `appAccountToken`.
+- Ehrliche Grenze: Die Pro-Funktionen laufen offline im Gerät. Wer den App-Code selbst verändert, kann lokale Sperren umgehen; das gilt für jede Offline-App. Auch der Tageszähler der Free-Version liegt lokal. Was der Server schützt, ist der Abo-Status selbst.
+- Ohne konfigurierten Server zeigt die App „Zahlungen noch nicht eingerichtet“ statt eines Kauf-Buttons ohne Funktion. Den Schalter „Pro simulieren“ gibt es nur in `npm run dev`.
+
+## Neues Streckenteil hinzufügen
+
+1. In `src/geometry/catalog.ts` die `PieceId` erweitern und einen Eintrag in `PIECES` anlegen: Geometrie (`straight` mit Länge oder `arc` mit Mittelradius, Winkel in 30°-Schritten, Richtung), `entry`/`exit` (Anschlusstyp), `mirror` (Gegenstück links/rechts), `shapeCode`, optional `maxPerTrack`, `sources` (Index in `SOURCES`).
+2. `verified: true` nur mit belastbarer Maßquelle. Nicht verifizierte Teile bleiben in `UNVERIFIED_PIECES` und werden weder generiert noch als gültig gewertet.
+3. In `PIECE_ORDER` und `DEFAULT_INVENTORY` aufnehmen und einen Test in `tests/geometry.test.ts` ergänzen.
+4. Winkel, die keine Vielfachen von 30° sind, brauchen eine feinere `HEADING_UNIT_DEG` (die Rechnung bleibt exakt ganzzahlig).
 
 ## Recherche: Geometrie der HYBRID-Teile
 
@@ -59,12 +101,12 @@ Quellen:
 
 `src/generator/search.ts` – Tiefensuche mit Backtracking. Die Start-/Zielgerade liegt fest am Ursprung, jedes weitere Teil wird am Ausgang des Vorgängers angesetzt. Pruning:
 
-1. **Drehung:** Mit den restlichen Kurven muss die Gesamtdrehung noch exakt ±360° erreichbar sein (bei „alle Teile“ schon vorab geprüft – z. B. 7 R + 2 L ⇒ 300° ⇒ sofort „unmöglich“).
-2. **Distanz:** Die restliche Streckenlänge muss mindestens der Luftlinie zurück zum Start entsprechen.
+1. **Drehung:** Mit den restlichen Kurven *und den noch freien Plätzen bis zur Höchstzahl* muss die Gesamtdrehung noch exakt ±360° erreichbar sein.
+2. **Distanz:** Die restlichen Teile müssen den Start noch erreichen können (jedes Teil versetzt das Ende höchstens um seine Sehne).
 3. **Überschneidung:** Das neue Teil wird gegen alle früheren, nicht benachbarten Teile geprüft (SAT auf konvexen Teilflächen, volle Fahrbahnbreite, 3 mm Toleranz für reines Berühren).
 4. **Raum:** Teilstrecke breiter als die Raumdiagonale ⇒ Abbruch; fertige Layouts müssen in einer 30°-Drehung in den Raum passen.
 
-Ein Rundkurs zählt nur, wenn Endposition ≤ 0,5 mm vom Start entfernt ist **und** die Richtung exakt ±360° gedreht hat. Duplikate werden über eine kanonische Form ausgefiltert (zyklische Rotation, Spiegelung, umgekehrte Fahrtrichtung; Start/Ziel zählt geometrisch als Gerade) – es werden also nicht dieselben Strecken gedreht oder gespiegelt angeboten. Phase 1: 24 zufällige Neustarts mit Knotenbudget (Vielfalt bei großen Beständen). Phase 2: vollständige Suche bis Ende oder 6 s. Nur wenn Phase 2 fertig wird, sagt die App „kein Rundkurs möglich“; sonst „keiner gefunden (Zeitlimit)“.
+Ein Rundkurs zählt nur, wenn Endposition ≤ 0,5 mm vom Start entfernt ist **und** die Richtung exakt ±360° gedreht hat. Duplikate werden über eine kanonische Form ausgefiltert (zyklische Rotation, Spiegelung, umgekehrte Fahrtrichtung; Start/Ziel zählt geometrisch als Gerade) – es werden also nicht dieselben Strecken gedreht oder gespiegelt angeboten. Phase 1: zufällige Neustarts mit Knotenbudget, jeweils mit einer zufälligen Höchstzahl im gewünschten Bereich. Die enge Höchstzahl lässt das Pruning die Strecke zum Start zurückführen; so bleibt die Suche auch bei 60–100+ Teilen schnell (typisch 1–2 s). Phase 2: vollständige Suche; sobald genug Formen bekannt sind, nur noch ein kurzes Zusatzbudget. Phase 3 (nur „Maximale Ausnutzung“): Gefundene Rundkurse werden durch schlusserhaltende Einfügungen verlängert, also zwei Module mit exakt entgegengesetztem Versatz (Gerade/Gerade, R1-S-Kurve, R2-S-Kurve), danach komplette Neuprüfung. Nur wenn die vollständige Suche fertig wird, sagt die App „kein Rundkurs möglich“, sonst „keiner gefunden“. Ergebnisse werden nach Streckenstil bewertet (Geradenanteil, Richtungswechsel, Flächenausnutzung, Teilevielfalt).
 
 Grundbestand: 40 verschiedene Formen, vollständig durchsucht in rund 1 s.
 
@@ -79,7 +121,13 @@ src/geometry/orientation.ts  beste Ausrichtung / Raumprüfung
 src/generator/search.ts      Backtracking-Generator
 src/generator/canonical.ts   Formsignatur gegen Dubletten
 src/generator/worker.ts      Web Worker
-src/components/*             UI (TrackSvg, Generator, Editor, Strecken, Bestand)
+src/components/*             UI (TrackSvg, Generator, Editor, Strecken, Inventar, Pro)
+src/billing/*                Free/Pro-Konfiguration, Regeln, Token-Prüfung, API, StoreKit-Brücke
+src/lib/export.ts, pdf.ts    PNG-/PDF-Export (eigener PDF-Writer, keine Abhängigkeit)
+src/lib/platform.ts          native Speicherung (Capacitor Preferences)
+server/                      Abo-API: Konten, Stripe Checkout/Billing/Webhooks, Apple-Verifikation
+ios/                         Capacitor-iOS-Projekt (StorePlugin.swift = StoreKit 2)
 public/sw.js                 Service Worker (Build trägt Asset-Liste ein)
 tests/*.test.ts              Vitest
+docs/RELEASE.md              Zahlungen einrichten, TestFlight, offene Punkte
 ```

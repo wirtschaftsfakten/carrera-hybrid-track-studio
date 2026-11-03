@@ -54,6 +54,13 @@ export interface ArcGeometry {
   dir: 1 | -1;
 }
 
+/**
+ * Connector family. A piece can only be joined exit → entry to a piece with
+ * the same family. All verified HYBRID pieces share one family; a future
+ * piece type with a different joint (e.g. an adapter) gets its own value.
+ */
+export type ConnectorKind = 'hybrid';
+
 export interface PieceDef {
   id: PieceId;
   name: string;
@@ -63,6 +70,21 @@ export interface PieceDef {
   geometry: StraightGeometry | ArcGeometry;
   /** Factual note shown in the parts catalogue. */
   note: string;
+  /**
+   * true only when the geometry is backed by the sources below. The
+   * generator and validator refuse unverified pieces.
+   */
+  verified: boolean;
+  /** Indices into SOURCES (see below). */
+  sources: number[];
+  /** Same piece used the other way round (left ↔ right), null if symmetric. */
+  mirror: PieceId | null;
+  /** Letter used for the shape signature; pieces with equal geometry share it. */
+  shapeCode: string;
+  entry: ConnectorKind;
+  exit: ConnectorKind;
+  /** Upper limit per track, if the rules impose one (start/finish: 1). */
+  maxPerTrack?: number;
 }
 
 export const PIECES: Record<PieceId, PieceDef> = {
@@ -73,6 +95,13 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'A',
     geometry: { kind: 'straight', length: STRAIGHT_LENGTH },
     note: '433 × 250 mm, Fahrtrichtung durch Pfeil vor der Start-/Ziellinie vorgegeben. Genau eine pro Strecke.',
+    verified: true,
+    sources: [0, 1, 2],
+    mirror: null,
+    shapeCode: 'S',
+    entry: 'hybrid',
+    exit: 'hybrid',
+    maxPerTrack: 1,
   },
   straight: {
     id: 'straight',
@@ -81,6 +110,12 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'B',
     geometry: { kind: 'straight', length: STRAIGHT_LENGTH },
     note: '433 × 250 mm (Carrera: 25 × 43,3 cm).',
+    verified: true,
+    sources: [0, 1],
+    mirror: null,
+    shapeCode: 'S',
+    entry: 'hybrid',
+    exit: 'hybrid',
   },
   curveR1Right: {
     id: 'curveR1Right',
@@ -89,6 +124,12 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'D',
     geometry: { kind: 'arc', radius: 375, units: 2, dir: 1 },
     note: '60°, Innenradius 250 mm, Außenradius 500 mm, Mitte 375 mm. Nur als Rechtskurve verwendbar.',
+    verified: true,
+    sources: [0, 1, 4],
+    mirror: 'curveR1Left',
+    shapeCode: 'R',
+    entry: 'hybrid',
+    exit: 'hybrid',
   },
   curveR1Left: {
     id: 'curveR1Left',
@@ -97,6 +138,12 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'C',
     geometry: { kind: 'arc', radius: 375, units: 2, dir: -1 },
     note: '60°, Innenradius 250 mm, Außenradius 500 mm, Mitte 375 mm. Nur als Linkskurve verwendbar.',
+    verified: true,
+    sources: [0, 1, 4],
+    mirror: 'curveR1Right',
+    shapeCode: 'L',
+    entry: 'hybrid',
+    exit: 'hybrid',
   },
   curveR2Right: {
     id: 'curveR2Right',
@@ -105,6 +152,12 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'H',
     geometry: { kind: 'arc', radius: 1125, units: 1, dir: 1 },
     note: '30°, Innenradius 1000 mm, Außenradius 1250 mm, Mitte 1125 mm (Set 50052004).',
+    verified: true,
+    sources: [1, 3],
+    mirror: 'curveR2Left',
+    shapeCode: 'r',
+    entry: 'hybrid',
+    exit: 'hybrid',
   },
   curveR2Left: {
     id: 'curveR2Left',
@@ -113,6 +166,12 @@ export const PIECES: Record<PieceId, PieceDef> = {
     letter: 'G',
     geometry: { kind: 'arc', radius: 1125, units: 1, dir: -1 },
     note: '30°, Innenradius 1000 mm, Außenradius 1250 mm, Mitte 1125 mm (Set 50052004).',
+    verified: true,
+    sources: [1, 3],
+    mirror: 'curveR2Right',
+    shapeCode: 'l',
+    entry: 'hybrid',
+    exit: 'hybrid',
   },
 };
 
@@ -125,7 +184,23 @@ export const PIECE_ORDER: PieceId[] = [
   'curveR2Left',
 ];
 
-/** Pieces that exist but whose geometry could not be verified. They are not used. */
+/**
+ * Sources for the verified geometry. PieceDef.sources points into this list.
+ */
+export const SOURCES = [
+  { label: 'Carrera: Speedway to Hell (FAQ: Gerade 25 × 43,3 cm, Kurvenradius 37,5 cm, 609 cm Strecke)', url: 'https://carrera-toys.com/en-eu/products/50050001-speedway-to-hell' },
+  { label: 'carrera-fun.com: CARRERA HYBRID – The track (Teileliste mit Radien)', url: 'https://www.carrera-fun.com/?p=7909&lang=en' },
+  { label: 'Carrera HYBRID Bedienungsanleitung (Fahrtrichtung, Pfeile)', url: 'https://backend.carrera-revell-toys.com/var/assets/_default_upload_bucket/Carrera-Hybrid-Manual.pdf' },
+  { label: 'Carrera: Curves Radius 2 30° (50052004)', url: 'https://carrera-toys.com/en-eu/products/50052004-curves-radius-2-30-2x-l-2x-r' },
+  { label: 'Sturmkind Community: Hexagon-Raster der Kurven', url: 'https://community.sturmkind.com/topic/6935-andere-kurvenradien-im-hexagon/' },
+];
+
+/**
+ * Pieces that exist but whose geometry could not be verified. They are listed
+ * in the parts view but never used by the generator or counted as valid.
+ * To add one: give it a PieceId, a PIECES entry with geometry and sources,
+ * set verified: true and add it to PIECE_ORDER (see README, "Neues Teil").
+ */
 export const UNVERIFIED_PIECES = [
   {
     name: 'Haarnadelkurve 180° L/R (50052005)',
@@ -150,6 +225,23 @@ export const DEFAULT_INVENTORY: Inventory = {
   curveR2Right: 0,
   curveR2Left: 0,
 };
+
+/** Pieces the generator may use: verified ones only. */
+export const GENERATOR_PIECES: PieceId[] = PIECE_ORDER.filter((id) => PIECES[id].verified);
+
+export function canConnect(from: PieceId, to: PieceId): boolean {
+  return PIECES[from].exit === PIECES[to].entry;
+}
+
+export function totalPieces(inv: Inventory): number {
+  return PIECE_ORDER.reduce((s, id) => s + Math.min(inv[id], PIECES[id].maxPerTrack ?? Infinity), 0);
+}
+
+/** Largest straight-line distance one piece can cover (chord), in mm. */
+export function pieceChord(id: PieceId): number {
+  const g = PIECES[id].geometry;
+  return g.kind === 'straight' ? g.length : 2 * g.radius * Math.sin((g.units * HEADING_UNIT_DEG * Math.PI) / 360);
+}
 
 export function pieceLength(id: PieceId): number {
   const g = PIECES[id].geometry;

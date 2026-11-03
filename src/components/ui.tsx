@@ -120,3 +120,126 @@ export function Stat({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
+
+export function Segmented<T extends string>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: { value: T; label: string; locked?: boolean }[];
+  onChange: (v: T) => void;
+  label: string;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl bg-ink-900 p-1 ring-1 ring-white/5">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="radio"
+          aria-checked={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={`flex min-h-10 items-center justify-center gap-1 rounded-lg px-2 text-[13px] font-semibold transition ${
+            value === o.value ? 'bg-ink-700 text-white shadow ring-1 ring-white/10' : 'text-zinc-400 hover:text-zinc-200'
+          }`}
+        >
+          {o.label}
+          {o.locked && <LockIcon />}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function LockIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" aria-label="Pro" className={`shrink-0 text-carrera-amber ${className}`} fill="currentColor">
+      <path d="M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h1zm2 0h6V7a3 3 0 0 0-6 0v3z" />
+    </svg>
+  );
+}
+
+export function ProBadge() {
+  return <span className="rounded bg-carrera-red/15 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-carrera-red">Pro</span>;
+}
+
+/** Two-thumb range slider (min/max), touch friendly. */
+export function RangeSlider({
+  min,
+  max,
+  low,
+  high,
+  onChange,
+  label,
+  unit = '',
+  step = 1,
+}: {
+  min: number;
+  max: number;
+  low: number;
+  high: number;
+  onChange: (low: number, high: number) => void;
+  label: string;
+  unit?: string;
+  step?: number;
+}) {
+  const span = Math.max(1, max - min);
+  const pct = (v: number) => ((Math.min(max, Math.max(min, v)) - min) / span) * 100;
+  return (
+    <div className="py-1">
+      <div className="mb-1 flex items-baseline justify-between text-sm">
+        <span className="text-zinc-200">{label}</span>
+        <span className="font-semibold tabular-nums text-white">
+          {low}–{high}
+          {unit}
+        </span>
+      </div>
+      <div className="range-dual relative h-10">
+        <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-ink-700" />
+        <div
+          className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-carrera-red"
+          style={{ left: `${pct(low)}%`, right: `${100 - pct(high)}%` }}
+        />
+        <input
+          type="range"
+          aria-label={`${label} Minimum`}
+          min={min}
+          max={max}
+          step={step}
+          value={low}
+          onChange={(e) => onChange(Math.min(Number(e.target.value), high), high)}
+        />
+        <input
+          type="range"
+          aria-label={`${label} Maximum`}
+          min={min}
+          max={max}
+          step={step}
+          value={high}
+          onChange={(e) => onChange(low, Math.max(Number(e.target.value), low))}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" aria-label="Schließen" className="animate-fade absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="animate-sheet relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-ink-850 p-5 pb-[max(env(safe-area-inset-bottom),20px)] ring-1 ring-white/10 sm:rounded-3xl">
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold">{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Schließen" className="grid h-9 w-9 place-items-center rounded-full bg-white/5 text-zinc-300">
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}

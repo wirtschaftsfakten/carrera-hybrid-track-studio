@@ -1,5 +1,5 @@
 // Renders the app icons (hexagon track logo) as PNG without extra dependencies.
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { deflateSync } from 'node:zlib';
 
 const OUT = new URL('../public/icons/', import.meta.url);
@@ -20,9 +20,9 @@ function distSeg(px, py, [ax, ay], [bx, by]) {
   return Math.hypot(px - ax - t * dx, py - ay - t * dy);
 }
 
-function render(size, scale) {
+function render(size, scale, ss = 4) {
+  // ss: supersampling per axis
   const px = Buffer.alloc(size * size * 3);
-  const ss = 4; // supersampling
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const acc = [0, 0, 0];
@@ -95,4 +95,13 @@ writeFileSync(
   new URL('icon.svg', OUT),
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#12151c"/><path d="M32 10 L51 21 L51 43 L32 54 L13 43 L13 21 Z" fill="none" stroke="#262a33" stroke-width="10" stroke-linejoin="round"/><path d="M32 10 L51 21 L51 43" fill="none" stroke="#e3061b" stroke-width="3" stroke-linejoin="round"/><path d="M51 43 L32 54 L13 43 L13 21 L32 10" fill="none" stroke="#1e6bff" stroke-width="3" stroke-linejoin="round"/></svg>\n`,
 );
+// iOS (Capacitor): App Store icon 1024 px without alpha, splash 2732 px
+const IOS = new URL('../ios/App/App/Assets.xcassets/', import.meta.url);
+if (existsSync(IOS)) {
+  writeFileSync(new URL('AppIcon.appiconset/AppIcon-512@2x.png', IOS), render(1024, 1.0));
+  const splash = render(2732, 0.16, 1);
+  for (const name of ['splash-2732x2732.png', 'splash-2732x2732-1.png', 'splash-2732x2732-2.png']) {
+    writeFileSync(new URL(`Splash.imageset/${name}`, IOS), splash);
+  }
+}
 console.log('Icons geschrieben.');
