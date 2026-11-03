@@ -113,7 +113,9 @@ export const TrackSvg = forwardRef<SVGSVGElement, Props>(function TrackSvg(
   const center = (): Vec => ({ x: data.minX + data.w / 2, y: data.minY + data.h / 2 });
 
   // reset the zoom when a different track is shown
-  useEffect(() => setView(IDENTITY), [sequence, rotation]);
+  useEffect(() => {
+    setView(IDENTITY);
+  }, [sequence, rotation]);
 
   // wheel zoom needs a non-passive listener to stop the page from scrolling
   const zoomRef = useRef({ zoomAt, toSvg });

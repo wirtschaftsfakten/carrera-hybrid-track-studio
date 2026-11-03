@@ -55,9 +55,15 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [devPro, setDevPro] = useState(false);
 
-  useEffect(() => write(KEYS.usage, usage), [usage]);
-  useEffect(() => write(KEYS.account, account ?? undefined), [account]);
-  useEffect(() => write(KEYS.entitlement, token ?? undefined), [token]);
+  useEffect(() => {
+    write(KEYS.usage, usage);
+  }, [usage]);
+  useEffect(() => {
+    write(KEYS.account, account ?? undefined);
+  }, [account]);
+  useEffect(() => {
+    write(KEYS.entitlement, token ?? undefined);
+  }, [token]);
 
   // Verify the stored token offline (signature + expiry).
   useEffect(() => {

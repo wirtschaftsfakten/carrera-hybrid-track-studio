@@ -45,16 +45,26 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [upgrade, setUpgrade] = useState<string | null>(null);
 
-  useEffect(() => saveInventory(inventory), [inventory]);
-  useEffect(() => saveSaved(saved), [saved]);
-  useEffect(() => saveEditor(editor), [editor]);
-  useEffect(() => saveSettings(settings), [settings]);
+  useEffect(() => {
+    saveInventory(inventory);
+  }, [inventory]);
+  useEffect(() => {
+    saveSaved(saved);
+  }, [saved]);
+  useEffect(() => {
+    saveEditor(editor);
+  }, [editor]);
+  useEffect(() => {
+    saveSettings(settings);
+  }, [settings]);
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2200);
     return () => clearTimeout(t);
   }, [toast]);
-  useEffect(() => window.scrollTo({ top: 0 }), [tab]);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [tab]);
 
   const saveTrack = (sequence: PieceId[], rotation: number, name: string): string | null => {
     if (!canSaveTrack(tier, saved.length)) {
